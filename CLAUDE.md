@@ -4,6 +4,7 @@ Guidance for working in `licenses_exporter`. Design spec:
 `docs/superpowers/specs/2026-07-01-licenses-exporter-design.md`.
 
 ## Commands
+
 - `make cli` — build `bin/licenses_exporter`.
 - `make test` / `make test-race` — tests.
 - `make tools` — install pinned dev/CI tooling (golangci-lint, cyclonedx-gomod, govulncheck).
@@ -17,6 +18,7 @@ Guidance for working in `licenses_exporter`. Design spec:
 - Docs: `uvx --with mkdocs-material --with pymdown-extensions mkdocs build --strict`.
 
 ## Architecture
+
 Unified enterprise **license** exporter for the Prometheus/Grafana stack. A background
 **collection loop** (`internal/license/collector.go`) polls every configured target on
 `collection.interval` (default 2h) and publishes an immutable **snapshot** to a `SnapshotStore`
@@ -32,6 +34,7 @@ their `[]Source` from config: `internal/m365` (Microsoft Graph via `msgraph-sdk-
 `license_up{vendor,instance}=0`, never crashing the cycle.
 
 ## Conventions (load-bearing)
+
 - **Generic schema, vendor labels.** One `license_` prefix (novel vs. the family's per-vendor
   prefix — see ADR); vendors are distinguished by `vendor,product,unit,instance` labels, built
   from the shared builders in `internal/license/metrics.go`.
@@ -57,6 +60,7 @@ their `[]Source` from config: `internal/m365` (Microsoft Graph via `msgraph-sdk-
 - **Always update docs (`docs/metrics.md`) + `CHANGELOG.md`** in the same change as a feature.
 
 ## Adding a vendor collector
+
 Create `internal/<vendor>/` with its config struct, a `NewSources(cfg) ([]Source, error)`
 constructor, the `Source` implementation(s) (endpoint/SDK call + tolerant `parse → []Sample`
 stamping `vendor,product,unit,instance`), and a test (mock transport / SDK interface, or
@@ -75,6 +79,7 @@ via **both** the Prometheus registry gather and an OTLP `ManualReader`. Identity
 **Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
 
 **Important**: Even in command chains with `&&`, use `rtk`:
+
 ```bash
 # ❌ Wrong
 git add . && git commit -m "msg" && git push
@@ -86,6 +91,7 @@ rtk git add . && rtk git commit -m "msg" && rtk git push
 ## RTK Commands by Workflow
 
 ### Build & Compile (80-90% savings)
+
 ```bash
 rtk cargo build         # Cargo build output
 rtk cargo check         # Cargo check output
@@ -97,6 +103,7 @@ rtk next build          # Next.js build with route metrics (87%)
 ```
 
 ### Test (60-99% savings)
+
 ```bash
 rtk cargo test          # Cargo test failures only (90%)
 rtk go test             # Go test failures only (90%)
@@ -110,6 +117,7 @@ rtk test <cmd>          # Generic test wrapper - failures only
 ```
 
 ### Git (59-80% savings)
+
 ```bash
 rtk git status          # Compact status
 rtk git log             # Compact log (works with all git flags)
@@ -128,6 +136,7 @@ rtk git worktree        # Compact worktree
 Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
 
 ### GitHub (26-87% savings)
+
 ```bash
 rtk gh pr view <num>    # Compact PR view (87%)
 rtk gh pr checks        # Compact PR checks (79%)
@@ -137,6 +146,7 @@ rtk gh api              # Compact API responses (26%)
 ```
 
 ### JavaScript/TypeScript Tooling (70-90% savings)
+
 ```bash
 rtk pnpm list           # Compact dependency tree (70%)
 rtk pnpm outdated       # Compact outdated packages (80%)
@@ -147,6 +157,7 @@ rtk prisma              # Prisma without ASCII art (88%)
 ```
 
 ### Files & Search (60-75% savings)
+
 ```bash
 rtk ls <path>           # Tree format, compact (65%)
 rtk read <file>         # Code reading with filtering (60%)
@@ -155,6 +166,7 @@ rtk find <pattern>      # Find grouped by directory (70%)
 ```
 
 ### Analysis & Debug (70-90% savings)
+
 ```bash
 rtk err <cmd>           # Filter errors only from any command
 rtk log <file>          # Deduplicated logs with counts
@@ -166,6 +178,7 @@ rtk diff                # Ultra-compact diffs
 ```
 
 ### Infrastructure (85% savings)
+
 ```bash
 rtk docker ps           # Compact container list
 rtk docker images       # Compact image list
@@ -175,12 +188,14 @@ rtk kubectl logs        # Deduplicated pod logs
 ```
 
 ### Network (65-70% savings)
+
 ```bash
 rtk curl <url>          # Compact HTTP responses (70%)
 rtk wget <url>          # Compact download output (65%)
 ```
 
 ### Meta Commands
+
 ```bash
 rtk gain                # View token savings statistics
 rtk gain --history      # View command history with savings

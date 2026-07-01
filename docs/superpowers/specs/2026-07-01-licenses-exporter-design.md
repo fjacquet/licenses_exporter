@@ -138,6 +138,7 @@ license_build_info{version,goversion,...}                         # constant 1
 | `instance` | the configured target id (`tenant-a`, `vcsa01`) — one process, many targets. |
 
 **Design rules (novel → ADRs):**
+
 - **No `days_to_expiration` gauge and no `+9999` perpetual sentinel.** Expose the
   absolute Unix timestamp; perpetual licenses **omit** the series entirely. Days-left is
   `(license_expiration_timestamp_seconds - time()) / 86400` in PromQL.

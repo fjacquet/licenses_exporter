@@ -75,7 +75,7 @@ func serveWithReload(cfgPath, version, addr string) error {
 
 	watcher, _ := fsnotify.NewWatcher()
 	if watcher != nil {
-		defer watcher.Close()
+		defer func() { _ = watcher.Close() }()
 		_ = watcher.Add(cfgPath)
 	}
 

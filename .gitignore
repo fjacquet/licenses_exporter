@@ -1,0 +1,25 @@
+# build artifacts
+/bin/
+*.out
+coverage.html
+licenses_exporter
+
+# logs
+*.log
+
+# docs site
+/site/
+
+# local secrets
+.env
+*.local.yaml
+.claude.local.md
+.claude/settings.local.json
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# rtk
+.rtk/

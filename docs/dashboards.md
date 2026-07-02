@@ -2,7 +2,7 @@
 
 The demo stack auto-provisions one Grafana dashboard,
 `grafana/dashboards/licenses-overview.json` (uid `licenses-overview`, tagged `licenses`,
-`licenses_exporter`), via `grafana/provisioning/dashboards/dashboards.yml` (file provider) and
+`m365_licenses_exporter`), via `grafana/provisioning/dashboards/dashboards.yml` (file provider) and
 `grafana/provisioning/datasources/datasource.yml` (Prometheus datasource). Bring it up with
 `docker compose up` (see [Docker deployment](deployment/docker.md)) and open Grafana at
 `http://localhost:3000`.

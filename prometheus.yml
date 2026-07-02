@@ -5,7 +5,7 @@ rule_files:
   - /etc/prometheus/license.rules.yml
 
 scrape_configs:
-  - job_name: licenses_exporter
+  - job_name: m365_licenses_exporter
     metrics_path: /metrics
     static_configs:
-      - targets: ["licenses_exporter:9105"]
+      - targets: ["m365_licenses_exporter:9105"]

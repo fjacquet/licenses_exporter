@@ -1,6 +1,6 @@
 # Canonical Go Makefile — fjacquet/ci standard interface (do not rename targets)
 .DEFAULT_GOAL := all
-BIN     = licenses_exporter
+BIN     = m365_licenses_exporter
 DIST    ?= dist
 COVER   ?= coverage.out
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)

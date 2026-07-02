@@ -1,24 +1,21 @@
 services:
-  licenses_exporter:
+  m365_licenses_exporter:
     build: .
-    image: licenses_exporter
+    image: m365_licenses_exporter
     # Build-only image (no registry). Without this, `docker compose pull`/`up`
-    # tries to pull `licenses_exporter` from Docker Hub and fails with access-denied.
+    # tries to pull `m365_licenses_exporter` from Docker Hub and fails with access-denied.
     pull_policy: build
-    container_name: licenses_exporter
+    container_name: m365_licenses_exporter
     ports:
       - "9105:9105"
     volumes:
-      - ./config.yaml:/etc/licenses_exporter/config.yaml:ro
+      - ./config.yaml:/etc/m365_licenses_exporter/config.yaml:ro
     environment:
       # Single-target quickstart credentials. config.yaml is the source of truth for
       # which ${ENV} refs are actually consumed — env passthrough never replaces it.
       - M365_TENANT_ID=${M365_TENANT_ID:-tenant-id}
       - M365_CLIENT_ID=${M365_CLIENT_ID:-client-id}
       - M365_CLIENT_SECRET=${M365_CLIENT_SECRET:-}
-      - VCENTER_HOST=${VCENTER_HOST:-https://vcsa01/sdk}
-      - VCENTER_USER=${VCENTER_USER:-vmware-username}
-      - VCENTER_PASSWORD=${VCENTER_PASSWORD:-}
     restart: unless-stopped
 
   prometheus:
@@ -30,7 +27,7 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./deploy/prometheus/license.rules.yml:/etc/prometheus/license.rules.yml:ro
     depends_on:
-      - licenses_exporter
+      - m365_licenses_exporter
     restart: unless-stopped
 
   grafana:

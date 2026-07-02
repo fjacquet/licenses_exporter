@@ -34,11 +34,11 @@ m365:
 	if err := core.LoadYAML(path, &cfg); err != nil {
 		t.Fatalf("LoadYAML: %v", err)
 	}
-	if cfg.Base.Collection.Interval.Hours() != 3 {
-		t.Errorf("interval = %v, want 3h", cfg.Base.Collection.Interval)
+	if cfg.Collection.Interval.Hours() != 3 {
+		t.Errorf("interval = %v, want 3h", cfg.Collection.Interval)
 	}
-	if cfg.Base.OTLP.Endpoint != "otel:4317" {
-		t.Errorf("otlp endpoint = %q, want otel:4317", cfg.Base.OTLP.Endpoint)
+	if cfg.OTLP.Endpoint != "otel:4317" {
+		t.Errorf("otlp endpoint = %q, want otel:4317", cfg.OTLP.Endpoint)
 	}
 	if !cfg.M365.Enabled || len(cfg.M365.Tenants) != 1 || cfg.M365.Tenants[0].Instance != "tenant-a" {
 		t.Errorf("m365 block not parsed: %+v", cfg.M365)

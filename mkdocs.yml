@@ -1,8 +1,8 @@
-site_name: licenses_exporter
-site_description: Unified enterprise-license Prometheus + OTLP exporter (Microsoft 365, VMware vSphere)
-site_url: https://fjacquet.github.io/licenses_exporter/
-repo_url: https://github.com/fjacquet/licenses_exporter
-repo_name: fjacquet/licenses_exporter
+site_name: m365_licenses_exporter
+site_description: Microsoft 365 license Prometheus + OTLP exporter, built on licenses-exporter-core
+site_url: https://fjacquet.github.io/m365_licenses_exporter/
+repo_url: https://github.com/fjacquet/m365_licenses_exporter
+repo_name: fjacquet/m365_licenses_exporter
 
 # The design-spec/plan working docs live under docs/superpowers/ and are not part of the
 # published site (and would otherwise fail `--strict` for not being listed in nav).
@@ -59,6 +59,7 @@ nav:
       - 0007 Token auth & retry policy: adr/0007-token-auth-retry-policy.md
       - 0008 Config hot reload: adr/0008-config-hot-reload.md
       - 0009 OTLP observation-time points: adr/0009-otlp-observation-time-vs-snapshot-time.md
+      - 0010 Consume licenses-exporter-core: adr/0010-consume-licenses-exporter-core.md
 
 extra:
   version: v0.1.0

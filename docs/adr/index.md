@@ -1,9 +1,11 @@
 # Architecture decision records
 
-This directory records the significant architectural decisions for `licenses_exporter` — the
-*why* behind the design, in the form of dated [MADR](https://adr.github.io/madr/)-style
-records. Decisions are immutable once accepted: rather than editing a past record, add a new
-one that supersedes it.
+This directory records the significant architectural decisions for `m365_licenses_exporter`
+(formerly `licenses_exporter`) — the *why* behind the design, in the form of dated
+[MADR](https://adr.github.io/madr/)-style records. Decisions are immutable once accepted:
+rather than editing a past record, add a new one that supersedes it. ADRs 0001–0009 predate
+the [ADR-0010](0010-consume-licenses-exporter-core.md) split and record decisions made in the
+original unified engine, now owned by `licenses-exporter-core`.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -16,6 +18,7 @@ one that supersedes it.
 | [0007](0007-token-auth-retry-policy.md) | Token/credential auth with a retry policy that excludes 4xx | accepted |
 | [0008](0008-config-hot-reload.md) | Config hot reload: cancelable context + last-good-snapshot continuity | accepted |
 | [0009](0009-otlp-observation-time-vs-snapshot-time.md) | OTLP push: observation-time points, not snapshot-time | accepted |
+| [0010](0010-consume-licenses-exporter-core.md) | Consume `licenses-exporter-core` instead of an in-repo engine | accepted |
 
-To add a decision, copy [`0009`](0009-otlp-observation-time-vs-snapshot-time.md)'s structure to
+To add a decision, copy [`0010`](0010-consume-licenses-exporter-core.md)'s structure to
 the next number and link it here.

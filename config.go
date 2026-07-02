@@ -19,7 +19,7 @@ func loadConfig(path string) (core.Base, []core.Source, error) {
 	if err := core.LoadYAML(path, &cfg); err != nil {
 		return core.Base{}, nil, err
 	}
-	if err := cfg.Base.Validate(); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return core.Base{}, nil, err
 	}
 	sources, err := m365.NewSources(cfg.M365)

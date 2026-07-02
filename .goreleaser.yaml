@@ -3,7 +3,7 @@
 # Docs: https://goreleaser.com
 version: 2
 
-project_name: licenses_exporter
+project_name: m365_licenses_exporter
 
 # Normalise the optional tap PAT so templates can truthy-check it even when it is
 # absent (local snapshots) or empty (CI without the secret) — both mean "skip the cask".
@@ -15,9 +15,9 @@ before:
     - go mod download
 
 builds:
-  - id: licenses_exporter
+  - id: m365_licenses_exporter
     main: .
-    binary: licenses_exporter
+    binary: m365_licenses_exporter
     env:
       - CGO_ENABLED=0
     goos: [linux, darwin]
@@ -32,7 +32,7 @@ builds:
 
 archives:
   # tar.gz archives bundling the licence, README, and a sample config.
-  - id: licenses_exporter
+  - id: m365_licenses_exporter
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
@@ -40,7 +40,7 @@ archives:
       - README.md
       - config.yaml
   # Raw, un-archived binaries for consumers who script direct downloads.
-  - id: licenses_exporter_bin
+  - id: m365_licenses_exporter_bin
     formats: [binary]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
@@ -66,25 +66,25 @@ sboms:
 # tap repo, which requires a cross-repo PAT (HOMEBREW_TAP_GITHUB_TOKEN); the default
 # GITHUB_TOKEN cannot push to another repo. `skip_upload` keeps releases (and local
 # snapshots) working until that secret + the tap repo exist.
-# Install: brew install --cask fjacquet/tap/licenses_exporter
+# Install: brew install --cask fjacquet/tap/m365_licenses_exporter
 homebrew_casks:
-  - name: licenses_exporter
+  - name: m365_licenses_exporter
     # Two archives (tar.gz + raw binary) share each OS/arch; point the cask at the
     # tar.gz archive so it has one unambiguous artifact per platform.
-    ids: [licenses_exporter]
+    ids: [m365_licenses_exporter]
     skip_upload: '{{ if .Env.HOMEBREW_TAP_GITHUB_TOKEN }}false{{ else }}true{{ end }}'
     repository:
       owner: fjacquet
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/fjacquet/licenses_exporter
-    description: Prometheus + OTLP exporter for M365 and VMware licenses
+    homepage: https://github.com/fjacquet/m365_licenses_exporter
+    description: Prometheus + OTLP exporter for Microsoft 365 licenses
     # The binary is unsigned; strip the quarantine bit so Gatekeeper doesn't block it.
     hooks:
       post:
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/licenses_exporter"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/m365_licenses_exporter"]
           end
 
 # Use GitHub's native auto-generated release notes.
@@ -94,6 +94,6 @@ changelog:
 release:
   github:
     owner: fjacquet
-    name: licenses_exporter
+    name: m365_licenses_exporter
   draft: false
   prerelease: auto

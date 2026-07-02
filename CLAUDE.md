@@ -1,73 +1,67 @@
 # CLAUDE.md
 
-Guidance for working in `licenses_exporter`. Design spec:
+Guidance for working in `m365_licenses_exporter`. Design spec:
 `docs/superpowers/specs/2026-07-01-licenses-exporter-design.md`.
 
 ## Commands
 
-- `make cli` — build `bin/licenses_exporter`.
+- `make cli` — build `bin/m365_licenses_exporter`.
 - `make test` / `make test-race` — tests.
 - `make tools` — install pinned dev/CI tooling (golangci-lint, cyclonedx-gomod, govulncheck).
 - `make ci` — gofmt check + vet + lint + race tests + govulncheck + build (the CI gate).
 - `make release-snapshot` — local GoReleaser dry-run (binaries + archives + SBOM + checksums).
-- Run: `./bin/licenses_exporter --config config.yaml [--once] [--debug] [--trace]`. Secrets are
-  `${ENV}` refs in `config.yaml` (or `passwordFile`/`clientSecretFile`). `--once --debug` dumps
-  every collected sample (sorted, exposition style); `--trace` logs every **repo-owned** API
+- Run: `./bin/m365_licenses_exporter --config config.yaml [--once] [--debug] [--trace]`. Secrets
+  are `${ENV}` refs in `config.yaml` (or `clientSecretFile`). `--once --debug` dumps every
+  collected sample (sorted, exposition style); `--trace` logs every **repo-owned** API
   response body for live payload validation (never SDK debug modes — they leak the token).
 - Demo stack: `docker compose up` (exporter + Prometheus + Grafana, auto-provisioned; :9105).
 - Docs: `uvx --with mkdocs-material --with pymdown-extensions mkdocs build --strict`.
 
 ## Architecture
 
-Unified enterprise **license** exporter for the Prometheus/Grafana stack. A background
-**collection loop** (`internal/license/collector.go`) polls every configured target on
-`collection.interval` (default 2h) and publishes an immutable **snapshot** to a `SnapshotStore`
-(RWMutex pointer-swap). Both export paths read the latest snapshot, decoupling vendor-API load
-from scrape count: `/metrics` (`prometheus.go`, an *unchecked* collector) and the OTLP push
-(`otlp.go`, observable gauges). `main.go` wires the server, loop, hot reload, and `/health` —
-HTTP is served **before** the first collection cycle.
-
-Collection is **modular by vendor target**: each configured tenant/vCenter is one `Source`
-(`source.go`) — `Vendor()`, `Instance()`, `Collect(ctx) → []Sample`. Vendor packages build
-their `[]Source` from config: `internal/m365` (Microsoft Graph via `msgraph-sdk-go`) and
-`internal/vmware` (vSphere `LicenseManager` via `govmomi`). A source failure degrades to
-`license_up{vendor,instance}=0`, never crashing the cycle.
+This repo is a thin **consumer** of `github.com/fjacquet/licenses-exporter-core`, which owns
+the vendor-neutral engine: schema, snapshot store, collection loop, dual export
+(`/metrics` + OTLP push), and the hot-reload HTTP server. `main.go` delegates the whole
+lifecycle to `core.Main`; the repo owns only `internal/m365` (the Microsoft Graph collector,
+implementing core's `Source` interface — `Vendor()`, `Instance()`, `Collect(ctx) → []Sample`)
+and the consumer `Config`. See
+[ADR-0010](docs/adr/0010-consume-licenses-exporter-core.md). A source failure degrades to
+`license_up{vendor,instance}=0`, never crashing the cycle (core behaviour). The VMware
+collector and the in-repo engine that predate the core split are gone; see `CHANGELOG.md`.
 
 ## Conventions (load-bearing)
 
 - **Generic schema, vendor labels.** One `license_` prefix (novel vs. the family's per-vendor
   prefix — see ADR); vendors are distinguished by `vendor,product,unit,instance` labels, built
-  from the shared builders in `internal/license/metrics.go`.
+  from the shared constructors in `licenses-exporter-core` — never re-implemented locally.
 - **Raw facts, absent-never-zero.** Expose `license_seats_total`, `license_seats_used`, and
   `license_expiration_timestamp_seconds` (**omitted** when perpetual — no `9999` sentinel).
   No exporter-computed `days_to_expiration` or `compliance_status`; derive those in PromQL /
-  alert rules. An unparseable value yields an **absent** sample, never a fake `0`. Two
-  concrete cases: at **cold start** only `license_build_info` is emitted — no `license_up`
-  or target series until each source's first collect resolves; a **VMware unlimited** key
-  (`Total <= 0`) omits `license_seats_total` and emits only `license_seats_used`.
+  alert rules. An unparseable value yields an **absent** sample, never a fake `0`. At
+  **cold start** only `license_build_info` is emitted — no `license_up` or target series
+  until each source's first collect resolves.
 - **Label-key consistency.** A metric name carries one label-key set across all series (all
-  vendors); a label-parity test guards this.
-- **Auth.** VMware = govmomi session login, **stateless per 2h cycle** (login → query →
-  logout+close; no persisted cookie); M365 = `azidentity` client-credentials (via the SDK),
-  Graph app permission `Organization.Read.All`. Retry **excludes 4xx** (never retry auth
-  failures). Both SDKs are non-injectable, so `--trace` wraps only repo-owned transports —
-  never enable SDK debug (leaks bearer / `Set-Cookie`).
-- **Reload is cancelable.** Each collection cycle runs under a cancelable context; SIGHUP
-  cancels in-flight requests, re-validates config, respawns the loop, and keeps serving the
-  last-good snapshot until the new one is ready (never blanks `/metrics`).
-- **config.yaml is the way.** Collector toggling is `enabled:` per collector, not an env var;
+  vendors); guaranteed by construction via the shared core constructors.
+- **Auth.** M365 = `azidentity` client-credentials (via the SDK), Graph app permission
+  `Organization.Read.All`. Retry **excludes 4xx** (never retry auth failures, core policy).
+  The Graph SDK is non-injectable, so `--trace` wraps only repo-owned transports — never
+  enable SDK debug (leaks bearer token).
+- **Reload is cancelable.** Each collection cycle runs under a cancelable context (core
+  behaviour); SIGHUP cancels in-flight requests, re-validates config, respawns the loop, and
+  keeps serving the last-good snapshot until the new one is ready (never blanks `/metrics`).
+- **config.yaml is the way.** Collector toggling is `m365.enabled:`, not an env var;
   `${ENV}` refs expand in host/user/secret; `.env` is a convenience, never the source of truth.
 - **Always update docs (`docs/metrics.md`) + `CHANGELOG.md`** in the same change as a feature.
 
 ## Adding a vendor collector
 
-Create `internal/<vendor>/` with its config struct, a `NewSources(cfg) ([]Source, error)`
-constructor, the `Source` implementation(s) (endpoint/SDK call + tolerant `parse → []Sample`
-stamping `vendor,product,unit,instance`), and a test (mock transport / SDK interface, or
-`vcsim` for VMware). Wire the vendor into the config schema + registry, add an ADR for its
-client choice, document metrics in `docs/metrics.md`, and add a `CHANGELOG.md` entry. Assert
-via **both** the Prometheus registry gather and an OTLP `ManualReader`. Identity/asset metrics
-(AD, Entra) are a *different* metric family — give them their own prefix + schema ADR, not `license_`.
+This repo is **M365-only by design** — it is one member of the `licenses_exporter` family.
+Additional vendors get their own sibling repo (e.g. a future `vmware_licenses_exporter`)
+consuming `github.com/fjacquet/licenses-exporter-core`, not a package added here. Within
+`internal/m365`, a new source still follows core's `Source` interface — `Vendor()`,
+`Instance()`, `Collect(ctx) → []Sample` — with a tolerant `parse` stamping
+`vendor,product,unit,instance`; document metrics in `docs/metrics.md` and add a
+`CHANGELOG.md` entry for any collector change.
 
 ---
 

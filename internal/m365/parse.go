@@ -1,7 +1,7 @@
 package m365
 
 import (
-	"github.com/fjacquet/licenses_exporter/internal/license"
+	core "github.com/fjacquet/licenses-exporter-core"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 )
 
@@ -12,8 +12,8 @@ const (
 
 // skusToSamples maps subscribedSkus to license samples. Every getter is
 // nil-guarded: a missing count yields an absent sample, never a fake 0.
-func skusToSamples(instance string, skus []models.SubscribedSkuable) []license.Sample {
-	var out []license.Sample
+func skusToSamples(instance string, skus []models.SubscribedSkuable) []core.Sample {
+	var out []core.Sample
 	for _, sku := range skus {
 		if sku == nil {
 			continue
@@ -28,11 +28,11 @@ func skusToSamples(instance string, skus []models.SubscribedSkuable) []license.S
 		product := *p
 		if pre := sku.GetPrepaidUnits(); pre != nil {
 			if enabled := pre.GetEnabled(); enabled != nil {
-				out = append(out, license.SeatSample(license.MetricSeatsTotal, vendor, product, unit, instance, float64(*enabled)))
+				out = append(out, core.SeatSample(core.MetricSeatsTotal, vendor, product, unit, instance, float64(*enabled)))
 			}
 		}
 		if consumed := sku.GetConsumedUnits(); consumed != nil {
-			out = append(out, license.SeatSample(license.MetricSeatsUsed, vendor, product, unit, instance, float64(*consumed)))
+			out = append(out, core.SeatSample(core.MetricSeatsUsed, vendor, product, unit, instance, float64(*consumed)))
 		}
 	}
 	return out

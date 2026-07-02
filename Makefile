@@ -97,7 +97,7 @@ release-snapshot:
 	@echo "release artifacts in $(DIST)/"
 
 docker:
-	docker build -t $(BIN):$(VERSION) -t $(BIN):latest .
+	docker build --build-arg VERSION=$(VERSION) -t $(BIN):$(VERSION) -t $(BIN):latest .
 
 run-cli: cli
 	./bin/$(BIN) --config config.yaml

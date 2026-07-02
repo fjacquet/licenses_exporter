@@ -77,3 +77,19 @@ Initial release: a unified enterprise-license exporter for the Prometheus/Grafan
 - **Docs.** MkDocs Material site (`mkdocs.yml`) publishing the metrics catalog, deployment
   and dashboard guides, and nine architecture decision records
   (`docs/adr/0001`–`0009`, indexed at `docs/adr/index.md`).
+
+### Fixed
+
+- **M365 SKUs with no `skuPartNumber` are skipped** rather than emitted with `product=""`,
+  which would have collapsed distinct unidentifiable SKUs onto one series (label-contract /
+  raw-facts, [ADR-0005](docs/adr/0005-raw-facts-absent-not-zero-naming-units.md)).
+- **VMware `Logout` is bounded by a 10s timeout** (fresh context) so a stalled TCP can never
+  block the deferred call indefinitely, and a logout failure is now logged for session-leak
+  visibility.
+- **HTTP server hardening.** The `/metrics`+`/health` server now sets `ReadTimeout`,
+  `WriteTimeout`, and `IdleTimeout` in addition to `ReadHeaderTimeout` (slowloris resistance).
+- **`make docker` now passes `--build-arg VERSION`** so locally built images report the real
+  version in `license_build_info` instead of `dev`.
+- **Config file-watcher setup failures are surfaced** (a failed `fsnotify.NewWatcher`/`Add` is
+  logged, noting reload still works via `SIGHUP`), and the watcher's `Errors` channel is drained
+  and logged instead of being left to fill.

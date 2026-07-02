@@ -18,10 +18,14 @@ func skusToSamples(instance string, skus []models.SubscribedSkuable) []license.S
 		if sku == nil {
 			continue
 		}
-		product := ""
-		if p := sku.GetSkuPartNumber(); p != nil {
-			product = *p
+		// A SKU with no skuPartNumber cannot be identified; emitting product=""
+		// would collapse distinct such SKUs onto one series. Skip it (absent, not
+		// a blank-labelled fake) per the raw-facts contract (ADR-0005).
+		p := sku.GetSkuPartNumber()
+		if p == nil || *p == "" {
+			continue
 		}
+		product := *p
 		if pre := sku.GetPrepaidUnits(); pre != nil {
 			if enabled := pre.GetEnabled(); enabled != nil {
 				out = append(out, license.SeatSample(license.MetricSeatsTotal, vendor, product, unit, instance, float64(*enabled)))

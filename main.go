@@ -85,12 +85,18 @@ func serveWithReload(cfgPath, version, addr string) error {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
-	watcher, _ := fsnotify.NewWatcher()
-	if watcher != nil {
+	watcher, werr := fsnotify.NewWatcher()
+	if werr != nil {
+		// File-watch is best-effort: without it, reload still works via SIGHUP.
+		logrus.WithError(werr).Warn("config file watcher unavailable; reload via SIGHUP only")
+	} else {
 		defer func() { _ = watcher.Close() }()
-		_ = watcher.Add(cfgPath)
+		if err := watcher.Add(cfgPath); err != nil {
+			logrus.WithError(err).WithField("file", cfgPath).Warn("cannot watch config file; reload via SIGHUP only")
+		}
 	}
 	events := watcherEvents(watcher) // hoisted once; rebuilt-per-select was wasteful
+	errs := watcherErrors(watcher)   // drained below so watcher errors are surfaced, not lost
 
 	// Adapt OS signals + file events into plain reload/shutdown triggers so the
 	// reload state machine (ReloadLoop) stays free of signal/fsnotify types and is
@@ -124,6 +130,10 @@ func serveWithReload(cfgPath, version, addr string) error {
 				case reloads <- struct{}{}:
 				default:
 				}
+			case werr := <-errs:
+				// Surface watcher errors instead of leaving them to pile up in the
+				// channel; file-watch degrades but SIGHUP reload still works.
+				logrus.WithError(werr).Warn("config file watcher error")
 			}
 		}
 	}()
@@ -139,4 +149,11 @@ func watcherEvents(w *fsnotify.Watcher) <-chan fsnotify.Event {
 		return make(chan fsnotify.Event) // never fires
 	}
 	return w.Events
+}
+
+func watcherErrors(w *fsnotify.Watcher) <-chan error {
+	if w == nil {
+		return make(chan error) // never fires
+	}
+	return w.Errors
 }

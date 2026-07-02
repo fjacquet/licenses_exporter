@@ -103,7 +103,13 @@ func NewServer(cfg *config.Config, version, addr string) (*Server, error) {
 		return nil, fmt.Errorf("listen %q: %w", addr, err)
 	}
 
-	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	s := &Server{
 		srv:          srv,
 		ln:           ln,

@@ -54,3 +54,24 @@ func TestSkusToSamplesNilGuards(t *testing.T) {
 		}
 	}
 }
+
+func TestSkusToSamplesSkipsMissingProduct(t *testing.T) {
+	// A SKU carrying real counts but NO skuPartNumber must be skipped entirely:
+	// emitting product="" would collapse distinct unidentifiable SKUs onto one
+	// series and break the vendor/product label contract (ADR-0005). Before the
+	// skip, each of these would have emitted seat samples labelled product="".
+	noName := models.NewSubscribedSku()
+	noName.SetConsumedUnits(ptr(int32(5)))
+	detail := models.NewLicenseUnitsDetail()
+	detail.SetEnabled(ptr(int32(10)))
+	noName.SetPrepaidUnits(detail)
+
+	blank := models.NewSubscribedSku()
+	blank.SetSkuPartNumber(ptr("")) // present but empty
+	blank.SetConsumedUnits(ptr(int32(3)))
+
+	samples := skusToSamples("tenant-a", []models.SubscribedSkuable{noName, blank})
+	if len(samples) != 0 {
+		t.Fatalf("expected no samples from product-less SKUs, got %d: %+v", len(samples), samples)
+	}
+}

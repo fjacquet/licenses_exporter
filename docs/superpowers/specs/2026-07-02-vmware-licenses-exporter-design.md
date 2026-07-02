@@ -45,8 +45,11 @@ main.go ── core.Main(App{Load}) ──> core engine (snapshot / dual export 
   core-consumer template): `Makefile`, `.goreleaser.yaml`, `Dockerfile`,
   `Dockerfile.goreleaser`, `docker-compose.yml`, `docker-compose.ghcr.yml`, `.golangci.yml`,
   `.gitignore`, `LICENSE`, CI workflows under `.github/`, `mkdocs.yml`, and the `docs/`
-  skeleton — with `m365`→`vmware` renamed throughout and the port `9105` kept (single
-  exporter per host in the demo stack; a shared Prometheus scrapes each on its own address).
+  skeleton — with `m365`→`vmware` renamed throughout. **Default port `9106`** (m365's `9105`
+  + 1) so the two exporters co-locate on one host without a `--web.listen-address` override;
+  a shared Prometheus scrapes each on its own address. Update the `--web.listen-address`
+  default, `docker-compose*.yml` port mappings, `prometheus.yml` scrape target, and docs to
+  `9106`.
 - **Collector source:** `internal/vmware/{parse,source,vmware}.go` and `{parse,source}_test.go`
   are taken from `licenses_exporter` **main** (still intact there — the m365 conversion that
   deletes them is only on an unmerged PR branch). Rewire: imports `internal/license` → `core`

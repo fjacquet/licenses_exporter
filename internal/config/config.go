@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -77,6 +78,20 @@ func Expand(s string) (string, error) {
 		return "", fmt.Errorf("config references unset environment variable %q", missing)
 	}
 	return out, nil
+}
+
+// ResolveSecret returns the secret read from file (trimmed of surrounding
+// whitespace) when file is set, otherwise the inline value. Shared by the
+// vendor collectors so inline-vs-file precedence stays consistent across them.
+func ResolveSecret(inline, file string) (string, error) {
+	if file != "" {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return "", fmt.Errorf("read secret file: %w", err)
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	return inline, nil
 }
 
 // Load reads .env, expands ${ENV}, unmarshals YAML, and validates.

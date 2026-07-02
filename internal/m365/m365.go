@@ -2,8 +2,6 @@ package m365
 
 import (
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/fjacquet/licenses_exporter/internal/config"
@@ -22,7 +20,7 @@ func NewSources(cfg config.M365Raw) ([]license.Source, error) {
 	}
 	var out []license.Source
 	for _, t := range cfg.Tenants {
-		secret, err := resolveSecret(t.ClientSecret, t.ClientSecretFile)
+		secret, err := config.ResolveSecret(t.ClientSecret, t.ClientSecretFile)
 		if err != nil {
 			return nil, fmt.Errorf("m365 tenant %q: %w", t.Instance, err)
 		}
@@ -37,15 +35,4 @@ func NewSources(cfg config.M365Raw) ([]license.Source, error) {
 		out = append(out, &source{instance: t.Instance, lister: graphSkuLister{client: client}})
 	}
 	return out, nil
-}
-
-func resolveSecret(inline, file string) (string, error) {
-	if file != "" {
-		b, err := os.ReadFile(file)
-		if err != nil {
-			return "", fmt.Errorf("read secret file: %w", err)
-		}
-		return strings.TrimSpace(string(b)), nil
-	}
-	return inline, nil
 }

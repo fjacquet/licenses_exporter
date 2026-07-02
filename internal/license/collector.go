@@ -2,7 +2,6 @@ package license
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -40,16 +39,14 @@ func (c *Collector) CollectOnce(ctx context.Context) *Snapshot {
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(c.limit)
-	var mu sync.Mutex
+	// Each goroutine writes only its own results[i]; errgroup.Wait() establishes
+	// the happens-before before results is read below, so no lock is needed.
 	for i, src := range c.sources {
-		i, src := i, src
 		g.Go(func() error {
 			start := c.now()
 			samples, err := src.Collect(gctx)
 			dur := c.now().Sub(start)
-			mu.Lock()
 			results[i] = sourceResult{vendor: src.Vendor(), instance: src.Instance(), samples: samples, duration: dur, ok: err == nil}
-			mu.Unlock()
 			if err != nil {
 				logrus.WithFields(logrus.Fields{"vendor": src.Vendor(), "instance": src.Instance()}).WithError(err).Warn("source collection failed")
 			}

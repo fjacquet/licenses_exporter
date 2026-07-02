@@ -21,7 +21,6 @@ var allMetricNames = []string{
 // license_collector_last_success_timestamp_seconds).
 func RegisterOTLP(meter metric.Meter, store *SnapshotStore) error {
 	for _, name := range allMetricNames {
-		name := name
 		g, err := meter.Float64ObservableGauge(name, metric.WithDescription(helpText[name]))
 		if err != nil {
 			return err

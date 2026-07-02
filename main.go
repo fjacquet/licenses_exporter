@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/fjacquet/licenses_exporter/internal/app"
 	"github.com/fjacquet/licenses_exporter/internal/config"
@@ -39,7 +40,7 @@ func main() {
 				return err
 			}
 			if once {
-				return app.Run(context.Background(), cfg, version, addr, true)
+				return app.RunOnce(context.Background(), cfg, version, debug)
 			}
 			return serveWithReload(cfgPath, version, addr)
 		},
@@ -54,22 +55,33 @@ func main() {
 	}
 }
 
-// serveWithReload runs the exporter under a cancelable context and rebuilds it on
-// SIGHUP or config file change (design spec §2). A config that fails to load or
-// validate on reload is REJECTED: the currently running server is left
-// untouched and serveWithReload keeps waiting for the next reload trigger.
+// serveWithReload builds the process-lifetime serving stack ONCE (app.NewServer:
+// shared SnapshotStore + OTLP + a single bound HTTP listener) and then drives the
+// reload state machine (app.Server.ReloadLoop) against it. On SIGHUP or a config
+// file change the running collection loop is canceled and respawned with the new
+// config on the SAME server/store — the listener is never rebound and /metrics
+// keeps serving the last-good snapshot throughout (ADR-0008). A config that fails
+// to load or validate on reload is REJECTED and logged; the running server is left
+// untouched and never crashes. SIGINT/SIGTERM shut down cleanly.
 //
-// Deviation from the task-9 brief: the brief's version re-ran config.Load at
-// the top of its single `for {}` loop and treated any error there as fatal
-// (`return err`). Because a rejected reload's `continue` falls straight back
-// to that same top-of-loop Load against the very same (still-invalid) file, it
-// would immediately return that error and crash the whole process via main's
-// `logrus.Fatal` — contradicting the "REJECTED; keep the running server"
-// requirement. This version only re-validates a candidate config inside the
-// inner wait loop: an invalid candidate is logged and looped past without
-// ever touching the running ctx/cancel/server; the outer loop only rebuilds
-// once a *valid* new config has actually been obtained.
+// Only the initial config.Load and initial NewServer bind are fatal (startup).
+// Reload never re-runs a top-of-loop config.Load that could return-and-Fatal:
+// candidate configs are validated inside ReloadLoop and an invalid one is skipped.
 func serveWithReload(cfgPath, version, addr string) error {
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		return err // initial load failure is fatal
+	}
+	srv, err := app.NewServer(cfg, version, addr)
+	if err != nil {
+		return err // initial bind / OTLP setup failure is fatal
+	}
+	defer func() {
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutCtx)
+	}()
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
@@ -78,47 +90,48 @@ func serveWithReload(cfgPath, version, addr string) error {
 		defer func() { _ = watcher.Close() }()
 		_ = watcher.Add(cfgPath)
 	}
+	events := watcherEvents(watcher) // hoisted once; rebuilt-per-select was wasteful
 
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		return err // initial load failure is fatal
-	}
-
-	for {
-		ctx, cancel := context.WithCancel(context.Background())
-		go func(cfg *config.Config) {
-			if err := app.Run(ctx, cfg, version, addr, false); err != nil {
-				logrus.WithError(err).Error("run cycle ended")
-			}
-		}(cfg)
-
-		var newCfg *config.Config
-		for newCfg == nil {
+	// Adapt OS signals + file events into plain reload/shutdown triggers so the
+	// reload state machine (ReloadLoop) stays free of signal/fsnotify types and is
+	// unit-testable. Non-blocking sends coalesce bursts (a pending trigger already
+	// covers the reload) and keep this goroutine from ever blocking.
+	reloads := make(chan struct{}, 1)
+	shutdown := make(chan struct{}, 1)
+	go func() {
+		for {
 			select {
 			case sig := <-sigs:
 				if sig == syscall.SIGHUP {
 					logrus.Info("SIGHUP: reloading config")
+					select {
+					case reloads <- struct{}{}:
+					default:
+					}
 				} else {
-					cancel()
-					return nil // SIGINT/SIGTERM: shut down
+					select {
+					case shutdown <- struct{}{}:
+					default:
+					}
+					return // SIGINT/SIGTERM: stop translating
 				}
-			case ev := <-watcherEvents(watcher):
+			case ev := <-events:
 				if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
 					continue
 				}
 				logrus.WithField("file", ev.Name).Info("config changed: reloading")
+				select {
+				case reloads <- struct{}{}:
+				default:
+				}
 			}
-			// Validate the candidate config BEFORE tearing down the running server.
-			loaded, err := config.Load(cfgPath)
-			if err != nil {
-				logrus.WithError(err).Warn("new config invalid; keeping current running config")
-				continue
-			}
-			newCfg = loaded
 		}
-		cancel() // tear down old; loop rebuilds with the new, already-validated config
-		cfg = newCfg
-	}
+	}()
+
+	srv.ReloadLoop(cfg, reloads, shutdown, func() (*config.Config, error) {
+		return config.Load(cfgPath)
+	})
+	return nil
 }
 
 func watcherEvents(w *fsnotify.Watcher) <-chan fsnotify.Event {

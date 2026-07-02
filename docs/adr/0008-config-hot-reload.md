@@ -23,11 +23,19 @@ never silently accepts a broken config and crashes the running process.
 
 ## Decision outcome
 
-Chosen option: **cancelable-context rebuild-and-swap**
-(`serveWithReload` in `main.go`):
+Chosen option: **cancelable-context rebuild-and-swap** (`serveWithReload` in `main.go` drives
+`app.Server.ReloadLoop` over the process-lifetime stack built once by `app.NewServer`):
 
-1. Each background collection loop (`Collector.Run`) executes under a `context.Context`
-   created fresh per loop iteration via `context.WithCancel`.
+0. The **serving stack is built exactly once** at startup by `app.NewServer`: the shared
+   `SnapshotStore`, the Prometheus registry+collector, the OTLP push exporter, the `/health`
+   handler, and a single `http.Server` whose listener is bound up front via `net.Listen`. A
+   bind failure is returned synchronously (startup-fatal, acceptable); a *runtime* serve error
+   is only logged, never fatal. Reload **never** rebuilds the server or rebinds the socket, so
+   it can never fail with "address already in use" and can never kill the process.
+1. Each background collection loop (`Server.RunCollection`) executes under a `context.Context`
+   created fresh per loop iteration via `context.WithCancel`. `RunCollection` runs exactly one
+   `CollectOnce` (marking `/health` ready after that first cycle) and then hands off to a
+   ticker-only loop (`Collector.RunTicker`) — never a double back-to-back initial collect.
 2. On `SIGHUP` or an `fsnotify` write/create event on the config file, the **candidate**
    config is loaded and validated (`config.Load`) *before* anything about the running loop is
    touched. If the candidate fails to load or fails validation, it is logged and discarded —
@@ -35,12 +43,13 @@ Chosen option: **cancelable-context rebuild-and-swap**
    process never crashes and never tears down a working loop for a broken candidate.
 3. Only once a valid new config is obtained does the outer loop cancel the current cycle's
    context (aborting any in-flight VMware/M365 SDK request immediately) and spawn a brand-new
-   `Collector.Run` goroutine against the new config, resetting the `collection.interval`
-   timer from zero.
+   `Server.RunCollection` goroutine against the new config on the **same** server and store,
+   resetting the `collection.interval` timer from zero.
 4. The `SnapshotStore` is a single, shared instance across every loop iteration — it is never
    replaced or recreated on reload. `/metrics` and `/health` keep serving the **last-good
    snapshot** produced by the outgoing loop until the new loop's first `CollectOnce` swaps in
-   a fresh one; `/metrics` never goes blank across a reload.
+   a fresh one; `/metrics` never goes blank across a reload, and `/health` never flips back to
+   `503` (it is set ready once and the store always holds a valid snapshot thereafter).
 5. `SIGINT`/`SIGTERM` cancel the active context and exit `serveWithReload` for a clean
    shutdown; they are handled on the same signal channel as `SIGHUP` but take the shutdown
    branch instead of the reload branch.

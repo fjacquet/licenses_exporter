@@ -73,9 +73,20 @@ func (c *Collector) CollectOnce(ctx context.Context) *Snapshot {
 	return snap
 }
 
-// Run collects immediately, then every interval until ctx is canceled.
+// Run collects immediately, then every interval until ctx is canceled. It is a
+// thin convenience over CollectOnce + RunTicker for callers that want the leading
+// collect folded in.
 func (c *Collector) Run(ctx context.Context, interval time.Duration) {
 	c.CollectOnce(ctx)
+	c.RunTicker(ctx, interval)
+}
+
+// RunTicker collects every interval until ctx is canceled. Unlike Run it does NOT
+// collect immediately on entry — the caller is expected to have already run the
+// first cycle (e.g. Server.RunCollection collects once to mark health ready, then
+// hands off to RunTicker). This avoids a double back-to-back initial collect —
+// two vCenter logins / two Graph fetches — on every startup and reload.
+func (c *Collector) RunTicker(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {

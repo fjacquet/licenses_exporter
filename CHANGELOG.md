@@ -45,11 +45,16 @@ Initial release: a unified enterprise-license exporter for the Prometheus/Grafan
   `${ENV}` expansion (fail-fast on unset) in host/user/secret fields, `passwordFile` /
   `clientSecretFile` for file-based secrets, and a `.env` convenience loader that never
   overrides real environment variables.
-- **Cancelable, validated hot reload.** `SIGHUP` or a config file change cancels the active
-  collection cycle's context, validates the candidate config before touching the running
-  server, and swaps in a freshly-built collection loop — `/metrics` keeps serving the
-  last-good snapshot throughout, and a config that fails validation is rejected without
-  disturbing the running exporter. See [ADR-0008](docs/adr/0008-config-hot-reload.md).
+- **Cancelable, validated hot reload.** The serving stack — shared `SnapshotStore`, OTLP
+  exporter, `/health`, and a single bound HTTP listener — is built **once** (`app.NewServer`);
+  a `SIGHUP` or config file change cancels only the active collection cycle's context,
+  validates the candidate config before touching anything, and respawns just the collection
+  loop (`Server.RunCollection`) on the same server and store. `/metrics` keeps serving the
+  last-good snapshot throughout (never blanks to `build_info`-only), `/health` never flips back
+  to `503`, the socket is never rebound (no reload-time "address already in use"), and a config
+  that fails validation is rejected without disturbing the running exporter. `RunCollection`
+  runs exactly one collect before its ticker — no double initial collect on startup/reload.
+  See [ADR-0008](docs/adr/0008-config-hot-reload.md).
 - **Live-validation flags.** `--once --debug` dumps every collected sample (sorted,
   exposition style) for a direct diff against `docs/metrics.md`; `--trace` logs repo-owned
   API responses without ever enabling SDK-level debug output (which would leak the bearer

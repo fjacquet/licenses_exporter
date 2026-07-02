@@ -95,8 +95,10 @@ cli:
 	go build -ldflags="$(LDFLAGS)" -o bin/$(BIN) .
 
 # Local dry-run: full pipeline (build, archive, SBOM, checksums) without publishing.
+# --parallelism 1 matches `release:` — the msgraph+otel tree OOMs on concurrent
+# multi-arch builds (also protects memory-constrained local boxes / devcontainers).
 release-snapshot:
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --parallelism 1
 	@echo "release artifacts in $(DIST)/"
 
 docker:

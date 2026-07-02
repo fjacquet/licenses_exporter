@@ -9,6 +9,7 @@ LDFLAGS = -s -w -X main.version=$(VERSION)
 # Pinned tool versions (installed by `make tools`).
 GOLANGCI_VERSION   ?= v2.12.2
 GORELEASER_VERSION ?= v2.16.0
+CYCLONEDX_VERSION  ?= v1.10.0
 
 .PHONY: all clean install tools lint format test build vuln sbom security docs \
         coverage-upload release ci \
@@ -29,6 +30,7 @@ tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@latest
 	go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
+	go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@$(CYCLONEDX_VERSION)
 
 lint:
 	golangci-lint run --timeout=5m
@@ -47,7 +49,7 @@ vuln:
 
 sbom:
 	mkdir -p $(DIST)
-	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest mod -json -output $(DIST)/sbom.cdx.json
+	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@$(CYCLONEDX_VERSION) mod -json -output $(DIST)/sbom.cdx.json
 
 security:  # advisory: reports findings but never blocks the build (CodeQL/osv are the blocking gates)
 	uvx semgrep scan --config auto --skip-unknown-extensions || true

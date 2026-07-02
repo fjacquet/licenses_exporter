@@ -48,17 +48,19 @@ checksum:
   name_template: checksums.txt
   algorithm: sha256
 
-# Module-wide CycloneDX SBOM via cyclonedx-gomod (must be on PATH — `make tools`).
+# Module-wide CycloneDX SBOM via `go run` (self-contained — needs nothing on PATH, so
+# `goreleaser release` works even in CI that hasn't run `make tools` first). Pin matches
+# the Makefile's CYCLONEDX_VERSION; bump both together.
 # GoReleaser runs sbom commands inside ./dist, so the module root is `../`.
-# `artifacts: any` runs the command once and emits a single module SBOM, matching
-# the content of `make sbom` (cyclonedx-gomod mod -licenses -json).
+# `artifacts: any` runs the command once and emits a single module SBOM, using the SAME
+# flags as `make sbom` (cyclonedx-gomod mod -json -output) so both SBOMs match.
 sboms:
   - id: cyclonedx-gomod
     artifacts: any
     documents:
       - "{{ .ProjectName }}_{{ .Version }}.sbom.cdx.json"
-    cmd: cyclonedx-gomod
-    args: ["mod", "-licenses", "-json", "-output", "$document", "../"]
+    cmd: go
+    args: ["run", "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0", "mod", "-json", "-output", "$document", "../"]
 
 # Homebrew cask (macOS only — casks are not supported on Linux). Published to a separate
 # tap repo, which requires a cross-repo PAT (HOMEBREW_TAP_GITHUB_TOKEN); the default

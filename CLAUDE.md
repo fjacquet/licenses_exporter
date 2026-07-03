@@ -1,7 +1,8 @@
 # CLAUDE.md
 
-Guidance for working in `m365_licenses_exporter`. Design spec:
-`docs/superpowers/specs/2026-07-01-licenses-exporter-design.md`.
+Guidance for working in `m365_licenses_exporter`. Design:
+`docs/superpowers/specs/2026-07-02-licenses-exporter-core-design.md` +
+[ADR-0010](docs/adr/0010-consume-licenses-exporter-core.md).
 
 ## Commands
 
@@ -16,6 +17,18 @@ Guidance for working in `m365_licenses_exporter`. Design spec:
   response body for live payload validation (never SDK debug modes — they leak the token).
 - Demo stack: `docker compose up` (exporter + Prometheus + Grafana, auto-provisioned; :9105).
 - Docs: `uvx --with mkdocs-material --with pymdown-extensions mkdocs build --strict`.
+
+## Gotchas
+
+- **`make cli` builds the binary, not `make`.** Bare `make` = `make all`
+  (`clean lint test build`): it deletes `bin/` and `build` is `go build ./...`
+  (compile check, no artifact). Use `make cli` to produce `bin/m365_licenses_exporter`.
+- **Never put a literal `${VAR}` in `config.yaml` — even in a comment.** `core.Expand`
+  does strict `${UPPER}` substitution over the raw file *before* YAML parsing and fails on
+  any unset var, so a `# … ${ENV} …` comment aborts startup with
+  `unset environment variable "ENV"`. Describe env-ref syntax in prose, not literal `${}`.
+- **`--trace` is a no-op for the M365 collector** (msgraph-sdk-go is non-injectable — no
+  repo-owned transport). Use `--once --debug` to inspect collected samples.
 
 ## Architecture
 
@@ -56,8 +69,9 @@ collector and the in-repo engine that predate the core split are gone; see `CHAN
 ## Adding a vendor collector
 
 This repo is **M365-only by design** — it is one member of the `licenses_exporter` family.
-Additional vendors get their own sibling repo (e.g. a future `vmware_licenses_exporter`)
-consuming `github.com/fjacquet/licenses-exporter-core`, not a package added here. Within
+Additional vendors get their own sibling repo (the published `vmware_licenses_exporter`
+and `veeam_licenses_exporter`) consuming `github.com/fjacquet/licenses-exporter-core`,
+not a package added here. Within
 `internal/m365`, a new source still follows core's `Source` interface — `Vendor()`,
 `Instance()`, `Collect(ctx) → []Sample` — with a tolerant `parse` stamping
 `vendor,product,unit,instance`; document metrics in `docs/metrics.md` and add a

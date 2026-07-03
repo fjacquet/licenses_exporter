@@ -1,14 +1,15 @@
 # Metrics reference
 
-`licenses_exporter` exposes one generic `license_` metric family across every vendor —
-vendors are distinguished by **labels**, not by metric name (see
+`m365_licenses_exporter` exposes one generic `license_` metric family, shared across the
+`licenses_exporter` family via `github.com/fjacquet/licenses-exporter-core`. Vendors are
+distinguished by **labels**, not by metric name (see
 [ADR-0004](adr/0004-generic-prefix-vendor-label-schema.md)). Every value is a raw fact
 straight from the vendor API: there is no exporter-computed compliance verdict or
 "days remaining" gauge (see [ADR-0005](adr/0005-raw-facts-absent-not-zero-naming-units.md)).
 Derive those in PromQL or alert rules from the raw facts below.
 
 This table is the diff target for `--once --debug`, which dumps every collected sample
-(sorted, exposition style) for live payload validation against a real tenant/vCenter.
+(sorted, exposition style) for live payload validation against a real tenant.
 
 ## License facts
 
@@ -31,10 +32,10 @@ This table is the diff target for `--once --debug`, which dumps every collected 
 
 | Label | Meaning / source |
 |---|---|
-| `vendor` | `"microsoft"` or `"vmware"`. |
-| `product` | M365: the SKU's `skuPartNumber` (e.g. `SPE_E5`). VMware: the license `name` (e.g. `vSphere_ENT+`). Raw vendor identifiers in v1 — no friendly-name mapping. |
-| `unit` | M365: always `users`. VMware: the license's `costUnit` (e.g. `cpuPackage`, `cores`, `server`, `vm`). |
-| `instance` | The configured target id from `config.yaml` (e.g. `tenant-a`, `vcsa01`). One process can poll many targets of the same vendor. |
+| `vendor` | `"microsoft"`. |
+| `product` | The SKU's `skuPartNumber` (e.g. `SPE_E5`). Raw vendor identifier — no friendly-name mapping. |
+| `unit` | Always `users`. |
+| `instance` | The configured tenant id from `config.yaml` (e.g. `primary`). One process can poll many M365 tenants. |
 
 ## Design rules (raw facts, absent-not-zero)
 
@@ -47,21 +48,19 @@ This table is the diff target for `--once --debug`, which dumps every collected 
 - **Absent, never zero.** An unparseable or missing capacity/used value yields an *absent*
   sample, never a fake `0` — a false `0` on a capacity metric would silently corrupt
   dashboards and over-allocation alerts.
-- **VMware unlimited licenses.** vSphere encodes unlimited capacity as `Total <= 0` (eval /
-  site / academic keys). The collector omits `license_seats_total` for that product and emits
-  only `license_seats_used`; detect it in PromQL with `absent(license_seats_total{...})`.
 - **Cold start.** Immediately after startup, before any source's first collection cycle
   resolves, `/metrics` exposes **only** `license_build_info` — no `license_up` or per-target
   series exist yet, so a scrape during that window can never see a transient `0` or a
   flapping target.
 - **Label-key consistency.** Every series of a given metric name carries the same label-key
-  set across all vendors, built from the shared builders in `internal/license/metrics.go`
-  (see [ADR-0006](adr/0006-label-key-consistency-invariant.md)).
+  set (see [ADR-0006](adr/0006-label-key-consistency-invariant.md)), built from the shared
+  constructors in `licenses-exporter-core` (see
+  [ADR-0010](adr/0010-consume-licenses-exporter-core.md)).
 
 ## Live validation
 
 ```bash
-./bin/licenses_exporter --config config.yaml --once --debug
+./bin/m365_licenses_exporter --config config.yaml --once --debug
 ```
 
 Runs a single collection cycle and prints every collected sample in sorted, Prometheus

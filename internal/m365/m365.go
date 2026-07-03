@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/fjacquet/licenses_exporter/internal/config"
-	"github.com/fjacquet/licenses_exporter/internal/license"
+	core "github.com/fjacquet/licenses-exporter-core"
 	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
 )
 
@@ -13,14 +12,14 @@ import (
 // granted Organization.Read.All (or Directory.Read.All) — see docs/deployment.
 var graphScopes = []string{"https://graph.microsoft.com/.default"}
 
-// NewSources builds one Source per configured tenant.
-func NewSources(cfg config.M365Raw) ([]license.Source, error) {
+// NewSources builds one core.Source per configured tenant.
+func NewSources(cfg M365Config) ([]core.Source, error) {
 	if !cfg.Enabled {
 		return nil, nil
 	}
-	var out []license.Source
+	var out []core.Source
 	for _, t := range cfg.Tenants {
-		secret, err := config.ResolveSecret(t.ClientSecret, t.ClientSecretFile)
+		secret, err := core.ResolveSecret(t.ClientSecret, t.ClientSecretFile)
 		if err != nil {
 			return nil, fmt.Errorf("m365 tenant %q: %w", t.Instance, err)
 		}

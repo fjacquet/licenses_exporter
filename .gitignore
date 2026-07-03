@@ -3,7 +3,7 @@
 /dist/
 *.out
 coverage.html
-licenses_exporter
+m365_licenses_exporter
 
 # logs
 *.log

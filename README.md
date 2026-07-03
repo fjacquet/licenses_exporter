@@ -1,16 +1,20 @@
-# licenses_exporter
+# m365_licenses_exporter
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-A unified enterprise-**license** exporter for the Prometheus/Grafana stack. It periodically
-polls multiple enterprise control planes — **Microsoft 365** (Microsoft Graph) and
-**VMware vSphere** (vCenter `LicenseManager`) — and normalizes their seat/entitlement data
-into one generic Prometheus schema, exposed via **both** a Prometheus `/metrics` endpoint
-and an OTLP metric push, fed from a single shared snapshot.
+A **Microsoft 365** license exporter for the Prometheus/Grafana stack, built on
+[`github.com/fjacquet/licenses-exporter-core`](https://github.com/fjacquet/licenses-exporter-core).
+It periodically polls the Microsoft Graph API (`subscribedSkus`) for one or more tenants and
+normalizes seat/entitlement data into the shared `license_` Prometheus schema, exposed via
+**both** a Prometheus `/metrics` endpoint and an OTLP metric push, fed from a single shared
+snapshot.
+
+Part of the `licenses_exporter` family; shares the `license_` schema via
+`licenses-exporter-core` — see [ADR-0010](docs/adr/0010-consume-licenses-exporter-core.md).
 
 ## Metrics
 
-One `license_` prefix across all vendors; vendors are distinguished by labels, not by
+One `license_` prefix shared across the family; vendors are distinguished by labels, not by
 metric name:
 
 | Metric | Labels | Notes |
@@ -32,22 +36,29 @@ each source's first collection cycle resolves.
 
 ```bash
 make cli
-./bin/licenses_exporter --config config.yaml
+./bin/m365_licenses_exporter --config config.yaml
 # metrics: http://localhost:9105/metrics   health: http://localhost:9105/health
 ```
 
 Useful flags: `--once --debug` runs a single collection cycle and dumps every collected
 sample (sorted, exposition style) instead of serving; `--trace` logs repo-owned API response
 bodies for live payload validation (never SDK debug modes, which would leak the bearer
-token / session cookie).
+token).
 
 ## Configuration
 
-Collectors are toggled per-vendor in `config.yaml` (`collectors.m365.enabled` /
-`collectors.vmware.enabled`), not via environment variables. Secrets are referenced as
-`${ENV}` placeholders inside `config.yaml` (or via `passwordFile` / `clientSecretFile` for
-file-based secrets); a `.env` file is a convenience for local `${ENV}` expansion, never the
-source of truth. See `config.yaml` for a full example (M365 tenant + VMware vCenter).
+The M365 collector is toggled in `config.yaml` (`m365.enabled`), not via environment
+variables. Secrets are referenced as `${ENV}` placeholders inside `config.yaml` (or via
+`clientSecretFile` for file-based secrets); a `.env` file is a convenience for local `${ENV}`
+expansion, never the source of truth. See `config.yaml` for a full example (one or more M365
+tenants).
+
+### Entra app registration
+
+The collector calls `GET /v1.0/subscribedSkus` as the app registration configured by
+`tenantId`/`clientId`/`clientSecret`. That app registration must be granted the Microsoft
+Graph **application permission `Organization.Read.All`** (or the broader
+`Directory.Read.All`), with **admin consent granted** in Entra ID.
 
 ## Demo stack
 

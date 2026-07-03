@@ -1,5 +1,5 @@
 # Grafana datasource provisioning for the docker-compose test stack.
-# Points Grafana at the Prometheus service that scrapes licenses_exporter.
+# Points Grafana at the Prometheus service that scrapes m365_licenses_exporter.
 apiVersion: 1
 
 datasources:

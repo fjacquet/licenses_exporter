@@ -1,6 +1,6 @@
 # Canonical Go Makefile — fjacquet/ci standard interface (do not rename targets)
 .DEFAULT_GOAL := all
-BIN     = licenses_exporter
+BIN     = m365_licenses_exporter
 DIST    ?= dist
 COVER   ?= coverage.out
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -95,8 +95,10 @@ cli:
 	go build -ldflags="$(LDFLAGS)" -o bin/$(BIN) .
 
 # Local dry-run: full pipeline (build, archive, SBOM, checksums) without publishing.
+# --parallelism 1 matches `release:` — the msgraph+otel tree OOMs on concurrent
+# multi-arch builds (also protects memory-constrained local boxes / devcontainers).
 release-snapshot:
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --parallelism 1
 	@echo "release artifacts in $(DIST)/"
 
 docker:

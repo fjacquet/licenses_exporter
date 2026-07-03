@@ -2,7 +2,7 @@
 
 The demo stack auto-provisions one Grafana dashboard,
 `grafana/dashboards/licenses-overview.json` (uid `licenses-overview`, tagged `licenses`,
-`licenses_exporter`), via `grafana/provisioning/dashboards/dashboards.yml` (file provider) and
+`m365_licenses_exporter`), via `grafana/provisioning/dashboards/dashboards.yml` (file provider) and
 `grafana/provisioning/datasources/datasource.yml` (Prometheus datasource). Bring it up with
 `docker compose up` (see [Docker deployment](deployment/docker.md)) and open Grafana at
 `http://localhost:3000`.
@@ -12,8 +12,8 @@ The demo stack auto-provisions one Grafana dashboard,
 | Variable | Query | Purpose |
 |---|---|---|
 | `datasource` | Prometheus datasource picker | Selects which Prometheus to query. |
-| `vendor` | `label_values(license_up, vendor)` | Filter to `microsoft` / `vmware` / both (multi-select, "All" default). |
-| `instance` | `label_values(license_up{vendor=~"$vendor"}, instance)` | Filter to specific tenants/vCenters. |
+| `vendor` | `label_values(license_up, vendor)` | Vendor label (this exporter emits only `microsoft`; the variable keeps the dashboard shareable across the `license_` family). |
+| `instance` | `label_values(license_up{vendor=~"$vendor"}, instance)` | Filter to specific tenants. |
 | `product` | `label_values(license_seats_total{vendor=~"$vendor"}, product)` | Filter to specific SKUs/license names. |
 
 ## Panels

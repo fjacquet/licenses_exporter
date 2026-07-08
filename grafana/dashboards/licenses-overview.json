@@ -136,8 +136,9 @@
     },
     {
       "id": 2,
-      "type": "table",
+      "type": "stat",
       "title": "Over-allocated licenses",
+      "description": "Count of products whose used seats exceed purchased capacity (used > total). \"None ✓\" (green) = nothing over-allocated; a red number is the count of breaching products.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -150,19 +151,50 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "None ✓",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "license_seats_used{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} > license_seats_total{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"}",
-          "format": "table",
+          "expr": "count(license_seats_used{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} > license_seats_total{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"}) or vector(0)",
           "instant": true,
           "legendFormat": "__auto"
         }
@@ -221,8 +253,9 @@
     },
     {
       "id": 4,
-      "type": "table",
-      "title": "Days to expiration",
+      "type": "stat",
+      "title": "Soonest expiry",
+      "description": "Days until the earliest-expiring license key (min across the current filters). \"No expiry ✓\" (green) = no expiry is emitted at all, i.e. every matching key is perpetual (the exporter omits expiration for perpetual keys). Red < 30d, yellow < 90d.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -235,25 +268,56 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "d"
+          "unit": "d",
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 100000000,
+                "to": 10000000000,
+                "result": {
+                  "text": "No expiry ✓",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "sortBy": [
-          {
-            "displayName": "Value",
-            "desc": false
-          }
-        ]
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(license_expiration_timestamp_seconds{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - time()) / 86400",
-          "format": "table",
+          "expr": "min((license_expiration_timestamp_seconds{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - time()) / 86400) or vector(1000000000)",
           "instant": true,
           "legendFormat": "__auto"
         }
@@ -261,8 +325,9 @@
     },
     {
       "id": 5,
-      "type": "table",
+      "type": "stat",
       "title": "Expiring < 30d",
+      "description": "Count of license keys whose expiry is within 30 days (or already past). \"None ✓\" (green) = nothing expiring soon; a red number is the count. Perpetual keys emit no expiry and never count here.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -275,19 +340,50 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "None ✓",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "license_expiration_timestamp_seconds{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - time() < 30*86400",
-          "format": "table",
+          "expr": "count(license_expiration_timestamp_seconds{vendor=~\"$vendor\",product=~\"$product\",instance=~\"$instance\"} - time() < 30*86400) or vector(0)",
           "instant": true,
           "legendFormat": "__auto"
         }

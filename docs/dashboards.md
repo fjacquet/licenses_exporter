@@ -7,6 +7,8 @@ The demo stack auto-provisions one Grafana dashboard,
 `docker compose up` (see [Docker deployment](deployment/docker.md)) and open Grafana at
 `http://localhost:3000`.
 
+![The licenses-overview dashboard, filtered to a single product](assets/dashboard-overview.png)
+
 ## Template variables
 
 | Variable | Query | Purpose |
